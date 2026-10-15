@@ -1,6 +1,6 @@
 # Minecraft World Atlas v0.1
 
-A small, local-first fantasy map editor: hand-drawn trees, mountain ranges, villages, rivers, roads, and the stories behind them. Includes an editable example world. No accounts, server database, or Minecraft connection.
+A small, local-first fantasy map editor: hand-drawn trees, mountain ranges, villages, rivers, roads, and the stories behind them. Starts with a blank canvas: all map content comes from you. No accounts, server database, or Minecraft connection.
 
 ## Run
 
@@ -36,4 +36,4 @@ For browser integration tests, start the app, install Playwright separately, and
 - `dist/app.js`: editor interactions, panels, camera, file operations, and local persistence.
 - `dist/index.html`, `dist/style.css`: accessible controls and responsive layout.
 
-Data uses world coordinates, with an array determining back-to-front order. Features have stable IDs, a type, geometry, style, name, and short lore. This version intentionally has one world, one geographical scale, and no remote data storage. The fixed island is a decorative starting canvas; editable coastlines and land painting are outside v0.1.
+Data uses world coordinates, with an array determining back-to-front order. Features have stable IDs, a type, geometry, style, name, and short lore. This version intentionally has one world, one geographical scale, and no remote data storage. There is no fixed island, built-in scenery, or pre-named geography. The first-release demo features are removed on load only when completely untouched; edited features and user-created places are preserved. Editable coastlines and land painting are outside v0.1.

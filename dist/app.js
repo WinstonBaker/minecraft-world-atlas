@@ -1,8 +1,8 @@
-import {createFeature,moveFeature,reorder,decode,encode,History,sampleWorld} from './model.js';
+import {createFeature,moveFeature,reorder,decode,encode,History,blankWorld,restoreWorld} from './model.js';
 import {icon,path,renderFeature,backdrop,esc} from './render.js';
 const $=id=>document.getElementById(id),KEY='world-atlas-v1';
-let state=sampleWorld(),saveBlocked=false;
-try{const raw=localStorage.getItem(KEY);if(raw)state=decode(raw);}catch{saveBlocked=true;}
+let state=blankWorld(),saveBlocked=false;
+try{const raw=localStorage.getItem(KEY);state=await restoreWorld(raw);}catch{saveBlocked=true;}
 const history=new History(state);let selected=null,tool='select',gesture=null,space=false,showLayers=false,toastTimer;
 const svg=$('map'),view=$('viewport');let camera={x:0,y:0,k:1},baseScale=1;
 const toolInfo=[['select','Select & move','V'],['pan','Pan the map','H'],['river','River','R'],['forest','Forest','F'],['mountain','Mountains','M'],['road','Road','D'],['settlement','Village','B']];
@@ -50,7 +50,7 @@ $('undo').onclick=()=>travel('undo');$('redo').onclick=()=>travel('redo');$('fit
 $('world-title').oninput=e=>{state.title=e.target.value;save();};$('world-title').onchange=commit;
 $('export').onclick=()=>{const blob=new Blob([encode(state)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=(state.title.replace(/[^a-z0-9]+/gi,'-')||'world')+'.atlas.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('World exported. Keep it somewhere safe.');};
 $('import').onclick=()=>$('import-file').click();$('import-file').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>10e6)throw Error('Please choose an Atlas file smaller than 10 MB.');const imported=decode(await file.text());state=imported;selected=null;saveBlocked=false;commit();renderAll();fit();toast('Welcome back. Your world has been imported.');}catch(error){toast(error.message||'Could not import this world.');}e.target.value='';};
-$('new-world').onclick=()=>$('new-dialog').showModal();$('cancel-new').onclick=()=>$('new-dialog').close();$('confirm-new').onclick=()=>{state={version:1,title:'An unwritten world',features:[]};selected=null;saveBlocked=false;commit();renderAll();$('new-dialog').close();toast('A fresh page. Make something wonderful.');};
+$('new-world').onclick=()=>$('new-dialog').showModal();$('cancel-new').onclick=()=>$('new-dialog').close();$('confirm-new').onclick=()=>{state=blankWorld();selected=null;saveBlocked=false;commit();renderAll();$('new-dialog').close();toast('A fresh page. Make something wonderful.');};
 window.addEventListener('keydown',e=>{const input=e.target.closest('input,textarea,[contenteditable]');if(input||$('new-dialog').open)return;if(e.code==='Space'){space=true;e.preventDefault();}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();travel(e.shiftKey?'redo':'undo');return;}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();travel('redo');return;}if(e.ctrlKey||e.metaKey||e.altKey)return;if(e.key==='Escape'){if(gesture)finish({pointerId:gesture.pointerId},true);select(null);chooseTool('select');}if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();remove();}const t=toolInfo.find(t=>t[2].toLowerCase()===e.key.toLowerCase());if(t)chooseTool(t[0]);});
 window.addEventListener('keyup',e=>{if(e.code==='Space')space=false;});window.addEventListener('blur',()=>{space=false;});window.addEventListener('pagehide',save);
 $('backdrop').innerHTML=backdrop();chooseTool('select');renderAll();requestAnimationFrame(fit);new ResizeObserver(()=>{applyCamera();}).observe(svg);

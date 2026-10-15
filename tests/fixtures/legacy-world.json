@@ -1,0 +1,186 @@
+{
+  "version": 1,
+  "title": "The Overworld",
+  "features": [
+    {
+      "id": "93974dd4-5a98-4ea1-908c-e2ca302961a0",
+      "type": "road",
+      "points": [
+        [
+          400,
+          610
+        ],
+        [
+          490,
+          575
+        ],
+        [
+          560,
+          510
+        ],
+        [
+          640,
+          487
+        ],
+        [
+          741,
+          530
+        ],
+        [
+          860,
+          625
+        ]
+      ],
+      "name": "The Old Way",
+      "color": "#a38a61",
+      "size": 4,
+      "lore": "A well-worn trail between the valley and the coast.",
+      "visible": true,
+      "label": true
+    },
+    {
+      "id": "5f542991-73f4-40cf-a8bd-d60d86c1982a",
+      "type": "river",
+      "points": [
+        [
+          652,
+          214
+        ],
+        [
+          634,
+          278
+        ],
+        [
+          666,
+          335
+        ],
+        [
+          642,
+          389
+        ],
+        [
+          663,
+          447
+        ],
+        [
+          650,
+          510
+        ],
+        [
+          690,
+          564
+        ],
+        [
+          681,
+          628
+        ],
+        [
+          714,
+          715
+        ]
+      ],
+      "name": "Willow River",
+      "color": "#72a6ae",
+      "size": 7,
+      "lore": "A quiet river carrying mountain snowmelt through the heart of the valley.",
+      "visible": true,
+      "label": true
+    },
+    {
+      "id": "199bc5ba-461b-41a8-abbc-33f8ed86d153",
+      "type": "mountain",
+      "points": [
+        [
+          587,
+          252
+        ]
+      ],
+      "name": "The Cloudpeaks",
+      "color": "#8f9180",
+      "size": 1.55,
+      "lore": "On clear mornings, their snowy crowns catch the very first light.",
+      "visible": true,
+      "label": true
+    },
+    {
+      "id": "41498258-49d8-4630-bccf-6e284918e73f",
+      "type": "mountain",
+      "points": [
+        [
+          800,
+          330
+        ]
+      ],
+      "name": "Eastwatch Ridge",
+      "color": "#8f9180",
+      "size": 0.85,
+      "lore": "An old watchtower once stood along this ridge.",
+      "visible": true,
+      "label": true
+    },
+    {
+      "id": "1574377c-9f52-4a68-a70d-119b353f96af",
+      "type": "forest",
+      "points": [
+        [
+          424,
+          417
+        ]
+      ],
+      "name": "Bramblewood",
+      "color": "#668264",
+      "size": 1.65,
+      "lore": "A deep, mossy woodland. Follow the lanterns, and you may find your way home.",
+      "visible": true,
+      "label": true
+    },
+    {
+      "id": "8f7bad85-c55a-4679-b304-8db37a019510",
+      "type": "forest",
+      "points": [
+        [
+          792,
+          552
+        ]
+      ],
+      "name": "Whispering Pines",
+      "color": "#668264",
+      "size": 1.25,
+      "lore": "The trees sound almost like voices when the sea wind blows.",
+      "visible": true,
+      "label": true
+    },
+    {
+      "id": "0e17af97-b46b-4166-a6ba-423ec11f24db",
+      "type": "settlement",
+      "points": [
+        [
+          560,
+          516
+        ]
+      ],
+      "name": "Willowbrook",
+      "color": "#b47d57",
+      "size": 1.2,
+      "lore": "A little village of warm hearths, curious gardeners, and very good bread.",
+      "visible": true,
+      "label": true
+    },
+    {
+      "id": "14abe09d-0e3b-4d6d-8ca8-bda997d9a5d9",
+      "type": "settlement",
+      "points": [
+        [
+          860,
+          632
+        ]
+      ],
+      "name": "Mossport",
+      "color": "#b47d57",
+      "size": 0.9,
+      "lore": "Fishing boats, salt-stained roofs, and stories from faraway shores.",
+      "visible": true,
+      "label": true
+    }
+  ]
+}
