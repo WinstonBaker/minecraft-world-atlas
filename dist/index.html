@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f7f4eb"><meta name="description" content="Make a little world of your own. A hand-drawn fantasy map editor with places, paths, and stories."><title>Minecraft World Atlas</title><link rel="stylesheet" href="style.css?v=freehand-only-5"></head>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f7f4eb"><meta name="description" content="Make a little world of your own. A hand-drawn fantasy map editor with places, paths, and stories."><title>Minecraft World Atlas</title><link rel="stylesheet" href="style.css?v=draw-freely-6"></head>
 <body>
 <header><strong class="brand">World Atlas</strong><span id="save-status" role="status">Saved</span></header>
 <main>
-<aside class="tool-panel" aria-label="Drawing tools"><div id="tools" class="tools"></div><button id="new-world">New map</button></aside>
+<aside class="tool-panel" aria-label="Drawing tools"><div id="tools" class="tools"></div><div class="brush-settings"><label for="brush-color">Colour</label><input id="brush-color" type="color" value="#394939"><label for="brush-width">Width</label><input id="brush-width" type="number" min="1" max="30" step="1" value="3"></div><button id="open-layers">Layers</button><button id="new-world">New map</button></aside>
 <section class="workspace" aria-label="Map editor"><div class="map-heading"><div><input id="world-title" aria-label="World title" maxlength="120" value="Untitled world"></div><div class="history"><button id="undo" title="Undo (Ctrl or Command Z)" aria-label="Undo">Undo</button><button id="redo" title="Redo (Ctrl or Command Shift Z)" aria-label="Redo">Redo</button></div></div>
 <div id="map-wrap"><svg id="map" aria-label="Interactive fantasy map" role="application" tabindex="0" xmlns="http://www.w3.org/2000/svg"><defs>
 <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M50 0H0V50" fill="none" stroke="#8e9b85" stroke-width=".6" opacity=".25"/></pattern>
@@ -12,4 +12,4 @@
 </section>
 <aside class="details-panel"><div class="panel-tabs"><button class="active" id="tab-feature">Details</button><button id="tab-layers">Layers</button></div><section id="feature-panel"></section><section id="layers-panel" hidden><div id="layers"></div></section></aside>
 </main><div id="toast" role="status" hidden></div><dialog id="new-dialog"><h2>Start a new map?</h2><p>This replaces your current map. You can undo it during this session.</p><div><button id="cancel-new">Cancel</button><button id="confirm-new" class="primary">Start new map</button></div></dialog>
-<script type="module" src="app.js?v=freehand-only-5"></script></body></html>
+<script type="module" src="app.js?v=draw-freely-6"></script></body></html>

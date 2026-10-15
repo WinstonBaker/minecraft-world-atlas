@@ -1,5 +1,5 @@
-export const TYPES = ['river','road','forest','mountain','settlement'];
-export const DEFAULTS = {river:{name:'',color:'#72a6ae',size:7},road:{name:'',color:'#a38a61',size:4},forest:{name:'',color:'#668264',size:4},mountain:{name:'',color:'#8f9180',size:4},settlement:{name:'',color:'#b47d57',size:4}};
+export const TYPES = ['drawing','river','road','forest','mountain','settlement'];
+export const DEFAULTS = {drawing:{name:'',color:'#394939',size:3},river:{name:'',color:'#72a6ae',size:7},road:{name:'',color:'#a38a61',size:4},forest:{name:'',color:'#668264',size:4},mountain:{name:'',color:'#8f9180',size:4},settlement:{name:'',color:'#b47d57',size:4}};
 export function createFeature(type,points){if(!TYPES.includes(type))throw Error('Unknown feature');return {id:crypto.randomUUID(),type,points:structuredClone(points),...DEFAULTS[type],lore:'',visible:true,label:true};}
 export function moveFeature(f,dx,dy){return {...f,points:f.points.map(([x,y])=>[x+dx,y+dy])};}
 export function reorder(features,id,direction){const copy=[...features],i=copy.findIndex(f=>f.id===id),j=i+direction;if(i>=0&&j>=0&&j<copy.length)[copy[i],copy[j]]=[copy[j],copy[i]];return copy;}
