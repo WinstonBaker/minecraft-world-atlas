@@ -42,6 +42,48 @@ export function simplifyPoints(points){
   return points.filter((_,i)=>i%2===0);
 }
 
+export function resampleLoop(points, targetCount=16){
+  if(!Array.isArray(points)||points.length<3)return points||[];
+  const pts=[...points];
+  const first=pts[0];
+  const last=pts[pts.length-1];
+  if(Math.hypot(first[0]-last[0],first[1]-last[1])>5){
+    pts.push([first[0],first[1]]);
+  }
+
+  const dists=[0];
+  let totalLength=0;
+  for(let i=1;i<pts.length;i++){
+    const d=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);
+    totalLength+=d;
+    dists.push(totalLength);
+  }
+
+  if(totalLength<12)return createCirclePoints(first[0],first[1],55,targetCount);
+
+  const step=totalLength/targetCount;
+  const resampled=[];
+  let currentSegment=0;
+
+  for(let i=0;i<targetCount;i++){
+    const targetDist=i*step;
+    while(currentSegment<dists.length-1&&dists[currentSegment+1]<targetDist){
+      currentSegment++;
+    }
+    const d0=dists[currentSegment];
+    const d1=dists[currentSegment+1]||totalLength;
+    const segLen=d1-d0;
+    const t=segLen>0?(targetDist-d0)/segLen:0;
+    const p0=pts[currentSegment];
+    const p1=pts[currentSegment+1]||pts[0];
+    resampled.push([
+      Math.round(p0[0]+(p1[0]-p0[0])*t),
+      Math.round(p0[1]+(p1[1]-p0[1])*t)
+    ]);
+  }
+  return resampled;
+}
+
 export function createFeature(type,points){
   if(!TYPES.includes(type))throw Error('Unknown feature');
   return {

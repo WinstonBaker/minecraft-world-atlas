@@ -1,4 +1,4 @@
-import {createFeature,moveFeature,reorder,encode,decode,History,blankWorld,restoreWorld,createCirclePoints,subdividePoints,simplifyPoints} from './model.js?v=draw-freely-7';
+import {createFeature,moveFeature,reorder,encode,decode,History,blankWorld,restoreWorld,createCirclePoints,subdividePoints,simplifyPoints,resampleLoop} from './model.js?v=draw-freely-7';
 import {path,renderFeature,backdrop,esc} from './render.js?v=draw-freely-7';
 import {MultiplayerManager} from './multiplayer.js';
 
@@ -242,9 +242,17 @@ function finish(e,cancel=false){
   }
   if(g.kind==='loop'){
     const last=world(e);
-    const dist=Math.hypot(last[0]-g.start[0],last[1]-g.start[1]);
-    const r=dist>15?dist:65;
-    const pts=createCirclePoints(g.start[0],g.start[1],r,12);
+    if(g.points.length>0&&Math.hypot(last[0]-g.points.at(-1)[0],last[1]-g.points.at(-1)[1])>.1)g.points.push(last);
+    
+    let pts;
+    const totalDist = g.points.reduce((acc, pt, i) => i === 0 ? 0 : acc + Math.hypot(pt[0]-g.points[i-1][0], pt[1]-g.points[i-1][1]), 0);
+    
+    if(g.points.length <= 2 || totalDist < 20){
+      pts = createCirclePoints(g.start[0], g.start[1], 65, 12);
+    } else {
+      pts = resampleLoop(g.points, 16);
+    }
+
     const f={
       ...createFeature('loop',pts),
       name:'Topology contour',
@@ -264,7 +272,7 @@ function finish(e,cancel=false){
     editingPoints=true;
     $('reshape')?.setAttribute('aria-pressed','true');
     renderMap();
-    toast('Topology contour created! Drag any point around the circle to morph its shape.');
+    toast('Custom loop created! Drag any point around your shape to morph it.');
   }
   if(g.kind==='erase')commit();
   if(g.kind==='move'||g.kind==='vertex'){
@@ -311,6 +319,7 @@ svg.addEventListener('pointerdown',e=>{
     gesture={
       kind:'loop',
       start:p,
+      points:[p],
       brush:{
         color:$('brush-color').value,
         size:Math.min(30,Math.max(1,Number($('brush-width').value)||2.5)),
@@ -363,10 +372,12 @@ svg.addEventListener('pointermove',e=>{
     const fillVal = g.brush.fill ? g.brush.fillColor : 'none';
     $('draft').innerHTML=`<path d="${dStr}" stroke="${g.brush.color}" stroke-width="${g.brush.size}" fill="${fillVal}" fill-opacity="0.45" stroke-linecap="round" stroke-linejoin="round" opacity="${g.brush.opacity}"/>`;
   } else if(g.kind==='loop'){
-    const r=Math.max(15,Math.hypot(p[0]-g.start[0],p[1]-g.start[1]));
-    const pts=createCirclePoints(g.start[0],g.start[1],r,12);
+    for(const sample of e.getCoalescedEvents?.().length?e.getCoalescedEvents():[e]){
+      const q=world(sample),last=g.points.at(-1);
+      if(Math.hypot(q[0]-last[0],q[1]-last[1])*camera.k>=.75)g.points.push(q);
+    }
     const fillVal=g.brush.fill?g.brush.fillColor:'none';
-    $('draft').innerHTML=`<path d="${path(pts,true)}" stroke="${g.brush.color}" stroke-width="${g.brush.size}" fill="${fillVal}" fill-opacity="0.45" stroke-dasharray="4 4" opacity="${g.brush.opacity}"/>`;
+    $('draft').innerHTML=`<path d="${path(g.points,true)}" stroke="${g.brush.color}" stroke-width="${g.brush.size}" fill="${fillVal}" fill-opacity="0.4" stroke-dasharray="4 4" opacity="${g.brush.opacity}"/>`;
   } else if(g.kind==='move'){
     const m=moveFeature(g.original,p[0]-g.start[0],p[1]-g.start[1]);
     state.features=state.features.map(f=>f.id===m.id?m:f);
