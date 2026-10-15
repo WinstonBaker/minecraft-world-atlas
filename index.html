@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#2d3748">
+  <meta name="description" content="Collaborative Minecraft World Atlas: Draw, map, and plan your world with friends in real time.">
+  <title>Minecraft World Atlas</title>
+  <link rel="stylesheet" href="style.css?v=multiplayer-1">
+</head>
+<body>
+<header>
+  <div class="header-left">
+    <strong class="brand">⛏️ Minecraft World Atlas</strong>
+    <span id="save-status" role="status">Saved</span>
+  </div>
+  
+  <div class="header-center">
+    <div id="coords-display" class="coords-display" title="Minecraft Coordinates">X: 0, Z: 0</div>
+  </div>
+
+  <div class="header-right">
+    <button id="open-room-btn" class="pill-btn" title="Multiplayer & Room settings">
+      <span id="room-status-badge" class="status-dot connecting"></span>
+      <span id="room-name-label">Room: smp</span>
+      <span class="badge-count" id="peer-count">1 online</span>
+    </button>
+    <button id="share-link-btn" class="pill-btn primary-subtle" title="Copy multiplayer invite link">🔗 Share Link</button>
+    <button id="export-world-btn" class="pill-btn" title="Export world backup (JSON)">💾 Export</button>
+    <button id="import-world-btn" class="pill-btn" title="Import world file">📂 Import</button>
+    <input type="file" id="import-file-input" accept=".json" style="display:none">
+  </div>
+</header>
+
+<main>
+  <aside class="tool-panel" aria-label="Drawing tools">
+    <div id="tools" class="tools"></div>
+    
+    <div class="brush-settings">
+      <label for="brush-color">Color</label>
+      <input id="brush-color" type="color" value="#394939">
+      <label for="brush-width">Width</label>
+      <input id="brush-width" type="number" min="1" max="30" step="1" value="3">
+    </div>
+
+    <div class="biome-presets" aria-label="Minecraft biome presets">
+      <span class="presets-label">Biome Presets</span>
+      <div class="swatches">
+        <button class="swatch" data-color="#4a7c38" data-size="4" title="Forest / Grass" style="background:#4a7c38"></button>
+        <button class="swatch" data-color="#2980b9" data-size="7" title="River / Water" style="background:#2980b9"></button>
+        <button class="swatch" data-color="#a38a61" data-size="4" title="Path / Dirt" style="background:#a38a61"></button>
+        <button class="swatch" data-color="#7f8c8d" data-size="5" title="Mountain / Stone" style="background:#7f8c8d"></button>
+        <button class="swatch" data-color="#8e44ad" data-size="4" title="Nether Portal" style="background:#8e44ad"></button>
+        <button class="swatch" data-color="#c0392b" data-size="4" title="Nether / Lava" style="background:#c0392b"></button>
+        <button class="swatch" data-color="#b47d57" data-size="6" title="Village / Wood" style="background:#b47d57"></button>
+        <button class="swatch" data-color="#f39c12" data-size="4" title="Gold / Base" style="background:#f39c12"></button>
+      </div>
+    </div>
+
+    <button id="open-layers">Layers</button>
+    <button id="new-world">New map</button>
+  </aside>
+
+  <section class="workspace" aria-label="Map editor">
+    <div class="map-heading">
+      <div>
+        <input id="world-title" aria-label="World title" maxlength="120" value="Untitled world">
+      </div>
+      <div class="history">
+        <button id="undo" title="Undo (Ctrl or Command Z)" aria-label="Undo">Undo</button>
+        <button id="redo" title="Redo (Ctrl or Command Shift Z)" aria-label="Redo">Redo</button>
+      </div>
+    </div>
+
+    <div id="map-wrap">
+      <svg id="map" aria-label="Interactive fantasy map" role="application" tabindex="0" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+            <path d="M50 0H0V50" fill="none" stroke="#8e9b85" stroke-width=".6" opacity=".25"/>
+          </pattern>
+        </defs>
+        <g id="viewport">
+          <g id="backdrop"></g>
+          <g id="features"></g>
+          <g id="draft" pointer-events="none"></g>
+          <g id="remote-cursors" pointer-events="none"></g>
+          <g id="handles"></g>
+        </g>
+      </svg>
+      <div class="canvas-controls">
+        <button id="toggle-grid" aria-label="Toggle grid" aria-pressed="false" title="Toggle grid">Grid</button>
+        <div class="zoom">
+          <button id="zoom-out" aria-label="Zoom out">−</button>
+          <output id="zoom-level">100%</output>
+          <button id="zoom-in" aria-label="Zoom in">＋</button>
+        </div>
+        <button id="fit" title="Fit world in view" aria-label="Fit map">Fit</button>
+      </div>
+    </div>
+  </section>
+
+  <aside class="details-panel">
+    <div class="panel-tabs">
+      <button class="active" id="tab-feature">Details</button>
+      <button id="tab-layers">Layers</button>
+    </div>
+    <section id="feature-panel"></section>
+    <section id="layers-panel" hidden>
+      <div id="layers"></div>
+    </section>
+  </aside>
+</main>
+
+<div id="toast" role="status" hidden></div>
+
+<dialog id="new-dialog">
+  <h2>Start a new map?</h2>
+  <p>This replaces your current map. You can undo it during this session.</p>
+  <div>
+    <button id="cancel-new">Cancel</button>
+    <button id="confirm-new" class="primary">Start new map</button>
+  </div>
+</dialog>
+
+<dialog id="room-dialog">
+  <h2>Multiplayer Room & Profile</h2>
+  <p>Share this link with your friends to draw and map your Minecraft world together in real-time!</p>
+  
+  <div class="dialog-field">
+    <label for="input-player-name">Your Player Name</label>
+    <input id="input-player-name" type="text" maxlength="30" placeholder="e.g. Steve">
+  </div>
+  
+  <div class="dialog-field">
+    <label for="input-player-color">Your Cursor Color</label>
+    <input id="input-player-color" type="color" value="#2ecc71">
+  </div>
+
+  <div class="dialog-field">
+    <label for="input-room-id">World / Room Code</label>
+    <div class="input-with-button">
+      <input id="input-room-id" type="text" maxlength="50" placeholder="e.g. smp">
+      <button id="btn-switch-room">Switch Room</button>
+    </div>
+  </div>
+
+  <div class="dialog-field">
+    <label>Multiplayer Link</label>
+    <div class="input-with-button">
+      <input id="input-share-url" type="text" readonly>
+      <button id="btn-copy-share-dialog" class="primary">Copy Link</button>
+    </div>
+  </div>
+
+  <div class="peers-section">
+    <label>Players in this room</label>
+    <div id="peers-list"></div>
+  </div>
+
+  <div class="dialog-actions">
+    <button id="close-room-dialog">Close</button>
+  </div>
+</dialog>
+
+<script type="module" src="app.js?v=multiplayer-1"></script>
+</body>
+</html>

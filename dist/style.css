@@ -14,3 +14,29 @@ main{height:calc(100dvh - 56px);min-height:520px;display:grid;grid-template-colu
 main{grid-template-columns:142px minmax(0,1fr)}main.editing{grid-template-columns:142px minmax(0,1fr) 258px}.details-panel{display:none}main.editing .details-panel{display:flex}.brush-settings{display:grid;grid-template-columns:1fr 48px;gap:12px 8px;align-items:center;font-size:12px;color:#7d8271}.brush-settings input{width:48px;min-width:0;height:30px;border:1px solid var(--line);border-radius:4px;background:transparent;color:#394939;padding:3px}.brush-settings input[type="number"]{padding-left:6px}#open-layers{font-size:12px}#map[data-tool="drawing"]{cursor:crosshair}#map[data-tool="erase"]{cursor:cell}
 @media(max-width:1050px) and (min-width:761px){main{grid-template-columns:124px minmax(0,1fr)}main.editing{grid-template-columns:124px minmax(0,1fr) 238px}}
 @media(max-width:760px){main,main.editing{grid-template-columns:minmax(0,1fr)}main{grid-template-rows:62px minmax(300px,1fr)}main.editing{grid-template-rows:62px minmax(300px,1fr) 220px}.brush-settings{display:flex;gap:8px;flex:none}.brush-settings label{font-size:11px}.brush-settings input{width:38px;height:30px}#open-layers{flex:none;white-space:nowrap}.tool-panel{align-items:center;gap:8px}.tool-panel #new-world{height:34px}.tool-panel .tools{height:36px}}
+
+/* Multiplayer & Minecraft enhancements */
+.header-left{display:flex;align-items:center;gap:12px}
+.header-center{display:flex;align-items:center}
+.header-right{display:flex;align-items:center;gap:8px}
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#95a5a6}
+.status-dot.connected{background:#2ecc71;box-shadow:0 0 6px #2ecc71}
+.status-dot.connecting{background:#f39c12}
+.status-dot.solo{background:#95a5a6}
+.pill-btn{border-radius:18px;font-size:12px;padding:6px 11px;display:inline-flex;align-items:center;gap:6px}
+.pill-btn.primary-subtle{background:#e8eddf;border-color:#c9d5bf;font-weight:600}
+.badge-count{background:#d0dbca;padding:1px 6px;border-radius:10px;font-size:10px}
+.coords-display{font-family:ui-monospace,monospace;font-size:12px;color:#506148;background:#eeede3;padding:4px 9px;border-radius:4px;border:1px solid #dcdfd0}
+.biome-presets{display:flex;flex-direction:column;gap:8px}
+.presets-label{font-size:11px;color:#7d8271;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.swatch{width:24px;height:24px;border-radius:4px;border:1px solid rgba(0,0,0,.15);padding:0;cursor:pointer;transition:transform .1s}
+.swatch:hover{transform:scale(1.15)}
+.dialog-field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;font-size:12px;color:#5a6652;text-align:left}
+.dialog-field input{padding:8px;border:1px solid #c9d5bf;border-radius:5px;background:#fdfcf7}
+.input-with-button{display:flex;gap:6px}
+.input-with-button input{flex:1}
+.peers-section{margin:16px 0;text-align:left;font-size:12px;color:#5a6652}
+.peer-item{display:flex;align-items:center;gap:8px;padding:4px 0}
+.peer-color{width:10px;height:10px;border-radius:50%;display:inline-block}
+.dialog-actions{display:flex;justify-content:flex-end;margin-top:18px}

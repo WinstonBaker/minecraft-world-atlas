@@ -8,6 +8,9 @@ try {
  const draw=async(x,y)=>{const r=await page.locator('#map').boundingBox();await page.mouse.move(r.x+x,r.y+y);await page.mouse.down();await page.mouse.move(r.x+x+100,r.y+y+30,{steps:35});await page.mouse.up();};
  await page.goto('http://localhost:4173');await page.waitForFunction(()=>localStorage.getItem('world-atlas-v1'));
  assert.equal(await page.locator('#map').getAttribute('data-tool'),'drawing');
+ assert.equal(await page.locator('[data-palette="brush-color"] button').count(),10);
+ await page.locator('[data-palette="brush-color"]').getByRole('button',{name:'River blue',exact:true}).click();
+ assert.equal(await page.locator('#brush-color').inputValue(),'#4b91b8');
  assert.equal(await page.locator('symbol,use,image,img,#paper,#export,#import').count(),0);
  assert.equal(await page.getByRole('button',{name:'Village',exact:true}).count(),0);
  await page.locator('#brush-color').fill('#225588');await page.locator('#brush-width').fill('6');
@@ -20,6 +23,7 @@ try {
  await page.getByRole('button',{name:'Redo',exact:true}).click();assert.equal((await saved()).features.length,2);await page.getByRole('button',{name:'Undo',exact:true}).click();
  await page.getByRole('button',{name:'Select',exact:true}).click();await page.mouse.click(r.x+200,r.y+192);
  await page.getByRole('textbox',{name:'Name',exact:true}).fill('My river');await page.getByRole('textbox',{name:'Lore',exact:true}).fill('A story written after drawing.');await page.getByRole('textbox',{name:'Lore',exact:true}).blur();
+ await page.locator('[data-palette="feature-color"]').getByRole('button',{name:'Sand',exact:true}).click();assert.equal((await saved()).features[0].color,'#d7bd89');assert.equal(await page.locator('#brush-color').inputValue(),'#225588');
  const before=(await saved()).features[0];await page.mouse.move(r.x+200,r.y+192);await page.mouse.down();await page.mouse.move(r.x+240,r.y+222,{steps:8});await page.mouse.up();const moved=(await saved()).features[0],dx=moved.points[0][0]-before.points[0][0],dy=moved.points[0][1]-before.points[0][1];assert.ok(Math.abs(dx)>1);assert.ok(moved.points.every((p,i)=>Math.abs(p[0]-before.points[i][0]-dx)<.01&&Math.abs(p[1]-before.points[i][1]-dy)<.01));
  await page.getByRole('button',{name:'Bring forward',exact:true}).click();assert.equal((await saved()).features[1].name,'My river');
  await page.getByRole('checkbox',{name:'Visible on map'}).uncheck();assert.equal(await page.locator(`[data-id="${first.id}"]`).count(),0);await page.getByRole('checkbox',{name:'Visible on map'}).check();
