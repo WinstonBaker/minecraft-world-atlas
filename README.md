@@ -36,3 +36,5 @@ For browser integration tests, start the app, install Playwright separately, and
 - `dist/index.html`, `dist/style.css`: accessible controls and responsive layout.
 
 Data uses world coordinates, with an array determining back-to-front order. Features have stable IDs, a type, geometry, style, name, and short lore. This version intentionally has one world, one geographical scale, and no remote data storage. There are no preset trees, buildings, mountain symbols, fixed islands, paper textures, or pre-named geography. All five drawing types render only user-created geometry; old single-point placements appear as simple ink dots. The first-release demo features are removed on load only when completely untouched; edited features and user-created places are preserved. Editable coastlines and land painting are outside v0.1.
+
+Saved worlds contain only drawing coordinates, names, lore, colours, widths, visibility, and order. Asset, sprite, SVG, and other unknown fields are stripped when loading or saving. Published file URLs are versioned to avoid stale drawing modules after a refresh.

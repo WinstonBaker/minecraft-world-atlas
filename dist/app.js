@@ -1,5 +1,5 @@
-import {createFeature,DEFAULTS,moveFeature,reorder,encode,History,blankWorld,restoreWorld} from './model.js';
-import {path,renderFeature,backdrop,esc} from './render.js';
+import {createFeature,DEFAULTS,moveFeature,reorder,encode,History,blankWorld,restoreWorld} from './model.js?v=freehand-only-5';
+import {path,renderFeature,backdrop,esc} from './render.js?v=freehand-only-5';
 const $=id=>document.getElementById(id),KEY='world-atlas-v1';
 let state=blankWorld(),saveBlocked=false;
 try{const raw=localStorage.getItem(KEY);state=await restoreWorld(raw);}catch{saveBlocked=true;}
