@@ -39,8 +39,22 @@
     <div class="brush-settings">
       <label for="brush-color">Color</label>
       <input id="brush-color" type="color" value="#394939">
+      
       <label for="brush-width">Width</label>
       <input id="brush-width" type="number" min="1" max="30" step="1" value="3">
+
+      <label for="brush-opacity">Opacity</label>
+      <div class="range-with-val">
+        <input id="brush-opacity" type="range" min="0.1" max="1" step="0.05" value="1">
+        <output id="brush-opacity-val">100%</output>
+      </div>
+
+      <div class="brush-fill-row">
+        <label class="checkbox-label" for="brush-fill-toggle">
+          <input id="brush-fill-toggle" type="checkbox"> Fill
+        </label>
+        <input id="brush-fill-color" type="color" value="#668264" title="Fill Color">
+      </div>
     </div>
 
     <div class="biome-presets" aria-label="Minecraft biome presets">

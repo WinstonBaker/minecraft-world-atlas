@@ -1,4 +1,4 @@
-import {createFeature,moveFeature,reorder,encode,decode,History,blankWorld,restoreWorld} from './model.js?v=draw-freely-7';
+import {createFeature,moveFeature,reorder,encode,decode,History,blankWorld,restoreWorld,createCirclePoints,subdividePoints,simplifyPoints} from './model.js?v=draw-freely-7';
 import {path,renderFeature,backdrop,esc} from './render.js?v=draw-freely-7';
 import {MultiplayerManager} from './multiplayer.js';
 
@@ -7,7 +7,7 @@ let state=blankWorld(),saveBlocked=false;
 try{const raw=localStorage.getItem(KEY);state=await restoreWorld(raw);}catch{saveBlocked=true;}
 const history=new History(state);let selected=null,editingPoints=false,tool='drawing',gesture=null,space=false,showLayers=false,toastTimer;
 const svg=$('map'),view=$('viewport');let camera={x:0,y:0,k:1},baseScale=1;
-const toolInfo=[['drawing','Draw','B'],['erase','Erase','E'],['select','Select','V'],['pan','Pan','H']];
+const toolInfo=[['drawing','Draw','B'],['loop','Loop / Topology','L'],['erase','Erase','E'],['select','Select','V'],['pan','Pan','H']];
 
 function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4500);}
 function save(){if(saveBlocked){$('save-status').textContent='Save paused';$('save-status').classList.add('error');return;}try{localStorage.setItem(KEY,encode(state));$('save-status').textContent='Saved';$('save-status').classList.remove('error');}catch{$('save-status').textContent='Couldn’t save';$('save-status').classList.add('error');}}
@@ -56,35 +56,143 @@ const mp = new MultiplayerManager({
   }
 });
 
-function chooseTool(next){tool=next;document.querySelector('main').classList.toggle('editing',next==='select');if(next!=='select'){selected=null;editingPoints=false;renderPanel();}svg.dataset.tool=next;document.querySelectorAll('.tool').forEach(b=>{b.classList.toggle('active',b.dataset.tool===next);b.setAttribute('aria-pressed',b.dataset.tool===next)});renderMap();}
-function renderMap(){$('features').innerHTML=state.features.map(f=>renderFeature(f,f.id===selected&&tool==='select')).join('');const f=state.features.find(f=>f.id===selected);$('handles').innerHTML=f?.visible&&tool==='select'&&editingPoints?f.points.map((p,i)=>`<circle class="vertex" data-vertex="${i}" cx="${p[0]}" cy="${p[1]}" r="${4/camera.k}"/>`).join(''):'';}
-function select(id){selected=id;editingPoints=false;renderMap();renderPanel();renderLayers();}
+function chooseTool(next){
+  tool=next;
+  document.querySelector('main').classList.toggle('editing',next==='select');
+  if(next!=='select'){
+    selected=null;
+    editingPoints=false;
+    renderPanel();
+  }
+  svg.dataset.tool=next;
+  document.querySelectorAll('.tool').forEach(b=>{
+    b.classList.toggle('active',b.dataset.tool===next);
+    b.setAttribute('aria-pressed',b.dataset.tool===next);
+  });
+  renderMap();
+}
 
-function renderPanel(){const f=state.features.find(f=>f.id===selected);if(!f){$('feature-panel').innerHTML=`<p class="empty-copy">Select a feature to edit.</p>`;return;}
-$('feature-panel').innerHTML=`<div class="feature-tag">${f.type==='settlement'?'Village':esc(f.type)}</div><label class="field">Name<input id="feature-name" type="text" maxlength="160" value="${esc(f.name)}" placeholder="Name"></label><label class="field">Lore<textarea id="feature-lore" maxlength="6000" placeholder="Description">${esc(f.lore)}</textarea></label><label class="field">Width<input id="feature-size" type="range" min="1" max="18" step="0.5" value="${f.size}"></label><div class="appearance"><label for="feature-color">Color</label><input id="feature-color" type="color" value="${f.color}"></div><label class="checkbox"><input id="feature-label" type="checkbox" ${f.label?'checked':''}>Show name on map</label><label class="checkbox"><input id="feature-visible" type="checkbox" ${f.visible?'checked':''}>Visible on map</label><button id="reshape" aria-pressed="${editingPoints}">Edit points</button><div class="stacking"><button id="send-back">Send back</button><button id="bring-front">Bring forward</button></div><button class="delete" id="delete-feature">Remove this ${f.type==='settlement'?'village':f.type}</button>`;
-for(const [id,prop]of [['feature-name','name'],['feature-lore','lore'],['feature-size','size'],['feature-color','color'],['feature-label','label'],['feature-visible','visible']]){
-  const input=$(id);
-  input.addEventListener('input',()=>{
-    const feature=state.features.find(o=>o.id===selected);
-    if (!feature) return;
-    feature[prop]=input.type==='checkbox'?input.checked:prop==='size'?Number(input.value):input.value;
+function renderMap(){
+  $('features').innerHTML=state.features.map(f=>renderFeature(f,f.id===selected&&tool==='select')).join('');
+  const f=state.features.find(f=>f.id===selected);
+  $('handles').innerHTML=f?.visible&&tool==='select'&&editingPoints?f.points.map((p,i)=>`<circle class="vertex" data-vertex="${i}" cx="${p[0]}" cy="${p[1]}" r="${5/camera.k}" stroke-width="${1.5/camera.k}"/>`).join(''):'';
+}
+
+function select(id){
+  selected=id;
+  editingPoints=false;
+  renderMap();
+  renderPanel();
+  renderLayers();
+}
+
+function renderPanel(){
+  const f=state.features.find(f=>f.id===selected);
+  if(!f){$('feature-panel').innerHTML=`<p class="empty-copy">Select a feature to edit.</p>`;return;}
+  
+  const typeLabel = f.type === 'loop' ? 'Topology contour' : f.type === 'settlement' ? 'Village' : esc(f.type);
+  const opacityVal = f.opacity !== undefined ? Math.round(f.opacity * 100) : 100;
+
+  $('feature-panel').innerHTML=`
+    <div class="feature-tag">${typeLabel}</div>
+    <label class="field">Name<input id="feature-name" type="text" maxlength="160" value="${esc(f.name)}" placeholder="Name"></label>
+    <label class="field">Lore<textarea id="feature-lore" maxlength="6000" placeholder="Description">${esc(f.lore)}</textarea></label>
+    <label class="field">Stroke Width<input id="feature-size" type="range" min="1" max="18" step="0.5" value="${f.size}"></label>
+    
+    <div class="appearance"><label for="feature-color">Border Color</label><input id="feature-color" type="color" value="${f.color}"></div>
+    
+    <label class="checkbox"><input id="feature-fill" type="checkbox" ${f.fill?'checked':''}> Fill shape</label>
+    <div class="appearance"><label for="feature-fill-color">Fill Color</label><input id="feature-fill-color" type="color" value="${f.fillColor || f.color}"></div>
+    
+    <label class="field">Opacity / Transparency (${opacityVal}%)<input id="feature-opacity" type="range" min="0.1" max="1" step="0.05" value="${f.opacity !== undefined ? f.opacity : 1}"></label>
+    <label class="checkbox"><input id="feature-closed" type="checkbox" ${f.closed?'checked':''}> Closed contour loop</label>
+
+    <div class="topology-buttons">
+      <button id="add-detail-pts" title="Add intermediate vertices to sculpt finer contours">➕ Detail Points</button>
+      <button id="simplify-pts" title="Smooth / reduce vertex count">➖ Simplify</button>
+    </div>
+
+    <label class="checkbox"><input id="feature-label" type="checkbox" ${f.label?'checked':''}> Show name on map</label>
+    <label class="checkbox"><input id="feature-visible" type="checkbox" ${f.visible?'checked':''}> Visible on map</label>
+    
+    <button id="reshape" aria-pressed="${editingPoints}">${editingPoints ? '✓ Done editing points' : 'Edit points (Morph)'}</button>
+    <div class="stacking"><button id="send-back">Send back</button><button id="bring-front">Bring forward</button></div>
+    <button class="delete" id="delete-feature">Remove this feature</button>
+  `;
+
+  for(const [id,prop]of [
+    ['feature-name','name'],
+    ['feature-lore','lore'],
+    ['feature-size','size'],
+    ['feature-color','color'],
+    ['feature-fill','fill'],
+    ['feature-fill-color','fillColor'],
+    ['feature-opacity','opacity'],
+    ['feature-closed','closed'],
+    ['feature-label','label'],
+    ['feature-visible','visible']
+  ]){
+    const input=$(id);
+    if (!input) continue;
+    input.addEventListener('input',()=>{
+      const feature=state.features.find(o=>o.id===selected);
+      if (!feature) return;
+      feature[prop]=input.type==='checkbox'?input.checked:['size','opacity'].includes(prop)?Number(input.value):input.value;
+      renderMap();
+      save();
+    });
+    input.addEventListener('change',()=>{
+      commit();
+      const feature=state.features.find(o=>o.id===selected);
+      if (feature) mp.broadcastUpdate(feature);
+    });
+  }
+
+  $('reshape').onclick=()=>{
+    editingPoints=!editingPoints;
+    $('reshape').setAttribute('aria-pressed',editingPoints);
+    $('reshape').textContent = editingPoints ? '✓ Done editing points' : 'Edit points (Morph)';
     renderMap();
-    save();
-  });
-  input.addEventListener('change',()=>{
+  };
+
+  $('add-detail-pts').onclick=()=>{
+    f.points=subdividePoints(f.points,f.closed);
     commit();
-    const feature=state.features.find(o=>o.id===selected);
-    if (feature) mp.broadcastUpdate(feature);
-  });
-}
-$('reshape').onclick=()=>{editingPoints=!editingPoints;$('reshape').setAttribute('aria-pressed',editingPoints);renderMap();};
-$('send-back').onclick=()=>{stack(f.id,-1);mp.broadcastUpdate(f);};
-$('bring-front').onclick=()=>{stack(f.id,1);mp.broadcastUpdate(f);};
-$('delete-feature').onclick=remove;
-$('send-back').disabled=state.features[0]?.id===f.id;$('bring-front').disabled=state.features.at(-1)?.id===f.id;
+    renderMap();
+    renderPanel();
+    mp.broadcastUpdate(f);
+    toast('Added detail points to contour! Drag to sculpt.');
+  };
+
+  $('simplify-pts').onclick=()=>{
+    f.points=simplifyPoints(f.points);
+    commit();
+    renderMap();
+    renderPanel();
+    mp.broadcastUpdate(f);
+    toast('Simplified contour points.');
+  };
+
+  $('send-back').onclick=()=>{stack(f.id,-1);mp.broadcastUpdate(f);};
+  $('bring-front').onclick=()=>{stack(f.id,1);mp.broadcastUpdate(f);};
+  $('delete-feature').onclick=remove;
+  $('send-back').disabled=state.features[0]?.id===f.id;
+  $('bring-front').disabled=state.features.at(-1)?.id===f.id;
 }
 
-function renderLayers(){$('layers').innerHTML=[...state.features].reverse().map((f,i)=>`<div class="layer-row ${selected===f.id?'selected':''}"><button class="eye" data-visibility="${esc(f.id)}" title="${f.visible?'Hide':'Show'} ${esc(f.name)}" aria-label="${f.visible?'Hide':'Show'} ${esc(f.name)}">${f.visible?'Hide':'Show'}</button><button class="layer-name" data-select="${esc(f.id)}">${esc(f.name||'Unnamed '+f.type)}</button><div class="layer-arrows"><button data-order="1" data-layer="${esc(f.id)}" aria-label="Bring ${esc(f.name)} forward" ${i===0?'disabled':''}>Up</button><button data-order="-1" data-layer="${esc(f.id)}" aria-label="Send ${esc(f.name)} back" ${i===state.features.length-1?'disabled':''}>Down</button></div></div>`).join('')||'<p class="layer-help">No features yet.</p>';}
+function renderLayers(){
+  $('layers').innerHTML=[...state.features].reverse().map((f,i)=>`
+    <div class="layer-row ${selected===f.id?'selected':''}">
+      <button class="eye" data-visibility="${esc(f.id)}" title="${f.visible?'Hide':'Show'} ${esc(f.name)}" aria-label="${f.visible?'Hide':'Show'} ${esc(f.name)}">${f.visible?'Hide':'Show'}</button>
+      <button class="layer-name" data-select="${esc(f.id)}">${esc(f.name||(f.type==='loop'?'Contour':('Unnamed '+f.type)))}</button>
+      <div class="layer-arrows">
+        <button data-order="1" data-layer="${esc(f.id)}" aria-label="Bring forward" ${i===0?'disabled':''}>Up</button>
+        <button data-order="-1" data-layer="${esc(f.id)}" aria-label="Send back" ${i===state.features.length-1?'disabled':''}>Down</button>
+      </div>
+    </div>
+  `).join('')||'<p class="layer-help">No features yet.</p>';
+}
+
 function stack(id,d){state.features=reorder(state.features,id,d);commit();renderMap();renderPanel();}
 function remove(){
   if(!selected)return;
@@ -116,13 +224,47 @@ function finish(e,cancel=false){
     if(g.points.length>0){
       const last=world(e);
       if(Math.hypot(...last.map((n,i)=>n-g.points.at(-1)[i]))>.1)g.points.push(last);
-      const f={...createFeature('drawing',g.points),...g.brush};
+      const f={
+        ...createFeature('drawing',g.points),
+        color:g.brush.color,
+        size:g.brush.size,
+        fill:g.brush.fill,
+        fillColor:g.brush.fillColor,
+        opacity:g.brush.opacity,
+        closed:Boolean(g.brush.fill)
+      };
       state.features.push(f);
       selected=null;
       commit();
       renderMap();
       mp.broadcastAdd(f);
     }
+  }
+  if(g.kind==='loop'){
+    const last=world(e);
+    const dist=Math.hypot(last[0]-g.start[0],last[1]-g.start[1]);
+    const r=dist>15?dist:65;
+    const pts=createCirclePoints(g.start[0],g.start[1],r,12);
+    const f={
+      ...createFeature('loop',pts),
+      name:'Topology contour',
+      color:g.brush.color,
+      fillColor:g.brush.fillColor,
+      fill:g.brush.fill,
+      opacity:g.brush.opacity,
+      size:g.brush.size,
+      closed:true
+    };
+    state.features.push(f);
+    commit();
+    renderMap();
+    mp.broadcastAdd(f);
+    chooseTool('select');
+    select(f.id);
+    editingPoints=true;
+    $('reshape')?.setAttribute('aria-pressed','true');
+    renderMap();
+    toast('Topology contour created! Drag any point around the circle to morph its shape.');
   }
   if(g.kind==='erase')commit();
   if(g.kind==='move'||g.kind==='vertex'){
@@ -165,8 +307,31 @@ svg.addEventListener('pointerdown',e=>{
     gesture={kind:'erase',before:structuredClone(state.features)};
     eraseAt(e);
   }
+  else if(tool==='loop'){
+    gesture={
+      kind:'loop',
+      start:p,
+      brush:{
+        color:$('brush-color').value,
+        size:Math.min(30,Math.max(1,Number($('brush-width').value)||2.5)),
+        fill:$('brush-fill-toggle').checked,
+        fillColor:$('brush-fill-color').value||$('brush-color').value,
+        opacity:Number($('brush-opacity').value)||0.65
+      }
+    };
+  }
   else {
-    gesture={kind:'draw',points:[p],brush:{color:$('brush-color').value,size:Math.min(30,Math.max(1,Number($('brush-width').value)||3))}};
+    gesture={
+      kind:'draw',
+      points:[p],
+      brush:{
+        color:$('brush-color').value,
+        size:Math.min(30,Math.max(1,Number($('brush-width').value)||3)),
+        fill:$('brush-fill-toggle').checked,
+        fillColor:$('brush-fill-color').value||$('brush-color').value,
+        opacity:Number($('brush-opacity').value)||1
+      }
+    };
   }
   if(gesture){
     gesture.pointerId=e.pointerId;
@@ -178,7 +343,7 @@ svg.addEventListener('pointerdown',e=>{
 svg.addEventListener('pointermove',e=>{
   const p=world(e);
   $('coords-display').textContent=`X: ${Math.round(p[0])}, Z: ${Math.round(p[1])}`;
-  mp.broadcastCursor(p[0], p[1], gesture?.kind==='draw');
+  mp.broadcastCursor(p[0], p[1], gesture?.kind==='draw'||gesture?.kind==='loop');
 
   if(!gesture||e.pointerId!==gesture.pointerId)return;
   const g=gesture;
@@ -194,7 +359,14 @@ svg.addEventListener('pointermove',e=>{
       const q=world(sample),last=g.points.at(-1);
       if(Math.hypot(q[0]-last[0],q[1]-last[1])*camera.k>=.75)g.points.push(q);
     }
-    $('draft').innerHTML=`<path d="${path(g.points)}" stroke="${g.brush.color}" stroke-width="${g.brush.size}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+    const dStr = path(g.points, Boolean(g.brush.fill));
+    const fillVal = g.brush.fill ? g.brush.fillColor : 'none';
+    $('draft').innerHTML=`<path d="${dStr}" stroke="${g.brush.color}" stroke-width="${g.brush.size}" fill="${fillVal}" fill-opacity="0.45" stroke-linecap="round" stroke-linejoin="round" opacity="${g.brush.opacity}"/>`;
+  } else if(g.kind==='loop'){
+    const r=Math.max(15,Math.hypot(p[0]-g.start[0],p[1]-g.start[1]));
+    const pts=createCirclePoints(g.start[0],g.start[1],r,12);
+    const fillVal=g.brush.fill?g.brush.fillColor:'none';
+    $('draft').innerHTML=`<path d="${path(pts,true)}" stroke="${g.brush.color}" stroke-width="${g.brush.size}" fill="${fillVal}" fill-opacity="0.45" stroke-dasharray="4 4" opacity="${g.brush.opacity}"/>`;
   } else if(g.kind==='move'){
     const m=moveFeature(g.original,p[0]-g.start[0],p[1]-g.start[1]);
     state.features=state.features.map(f=>f.id===m.id?m:f);
@@ -239,6 +411,11 @@ $('world-title').onchange=()=>{commit();mp.broadcastTitle(state.title);};
 
 $('new-world').onclick=()=>$('new-dialog').showModal();$('cancel-new').onclick=()=>$('new-dialog').close();
 $('confirm-new').onclick=()=>{state=blankWorld();selected=null;saveBlocked=false;commit();renderAll();mp.actions.sendSync?.(state);$('new-dialog').close();};
+
+// Brush Settings
+$('brush-opacity').oninput=e=>{
+  $('brush-opacity-val').textContent=Math.round(e.target.value*100)+'%';
+};
 
 // Multiplayer Dialog & Controls
 $('open-room-btn').onclick=()=>{
@@ -295,6 +472,7 @@ $('import-file-input').onchange=async e=>{
 document.querySelectorAll('.swatch').forEach(btn=>{
   btn.onclick=()=>{
     $('brush-color').value=btn.dataset.color;
+    $('brush-fill-color').value=btn.dataset.color;
     $('brush-width').value=btn.dataset.size;
     chooseTool('drawing');
   };

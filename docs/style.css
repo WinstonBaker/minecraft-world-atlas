@@ -40,3 +40,15 @@ main{grid-template-columns:142px minmax(0,1fr)}main.editing{grid-template-column
 .peer-item{display:flex;align-items:center;gap:8px;padding:4px 0}
 .peer-color{width:10px;height:10px;border-radius:50%;display:inline-block}
 .dialog-actions{display:flex;justify-content:flex-end;margin-top:18px}
+
+/* Fill, Opacity & Topology styles */
+.range-with-val{display:flex;align-items:center;gap:6px;width:100%}
+.range-with-val input[type="range"]{flex:1;accent-color:#668458;margin:0}
+.range-with-val output{font-size:11px;width:32px;text-align:right;color:#5a6652}
+.brush-fill-row{display:flex;align-items:center;justify-content:space-between;grid-column:1/-1;margin-top:4px}
+.brush-fill-row input[type="color"]{border:1px solid #d9decd;width:32px;height:26px;padding:2px;background:transparent;border-radius:4px}
+.checkbox-label{display:flex;align-items:center;gap:6px;font-size:12px;color:#7e8873;cursor:pointer}
+.checkbox-label input{accent-color:#668458}
+.topology-buttons{display:flex;gap:6px;margin:14px 0}
+.topology-buttons button{flex:1;font-size:11px;padding:7px 4px;background:#e8ede0;border-color:#c9d5be;color:#394939;border-radius:4px}
+.topology-buttons button:hover{background:#dce5d2}
