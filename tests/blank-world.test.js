@@ -14,6 +14,6 @@ test('legacy demo content is removed without removing edited or user-created pla
  const s=await model.restoreWorld(JSON.stringify(modified));assert.equal(s.title,'Our Minecraft world');assert.deepEqual(s.features,[modified.features[0],own]);
  const empty=await model.restoreWorld(JSON.stringify(legacy));assert.equal(empty.features.length,0);assert.equal(empty.title,'Untitled world');
 });
-test('backdrop has only paper and an optional grid, with no built-in geography',()=>{
+test('backdrop has only an optional grid, with no built-in geography',()=>{
  const art=backdrop();assert.doesNotMatch(art,/<path|<text|<use/);assert.match(art,/id="grid-layer"/);
 });
