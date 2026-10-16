@@ -1,5 +1,5 @@
 import {createFeature,moveFeature,reorder,encode,decode,History,blankWorld,restoreWorld,createCirclePoints,subdividePoints,simplifyPoints,resampleLoop} from './model.js?v=draw-freely-7';
-import {path,renderFeature,backdrop,esc} from './render.js?v=draw-freely-7';
+import {path,smoothClosedPath,renderFeature,backdrop,esc} from './render.js?v=draw-freely-7';
 import {SyncManager} from './sync.js';
 
 const $=id=>document.getElementById(id),KEY='world-atlas-v1';
@@ -92,8 +92,8 @@ const sync = new SyncManager({
 
 function chooseTool(next){
   tool=next;
-  document.querySelector('main').classList.toggle('editing',next==='select');
-  if(next!=='select'){
+  document.querySelector('main').classList.toggle('editing',next==='select'||next==='loop');
+  if(next!=='select'&&next!=='loop'){
     selected=null;
     editingPoints=false;
     renderPanel();
@@ -107,14 +107,15 @@ function chooseTool(next){
 }
 
 function renderMap(){
-  $('features').innerHTML=state.features.map(f=>renderFeature(f,f.id===selected&&tool==='select')).join('');
+  $('features').innerHTML=state.features.map(f=>renderFeature(f,f.id===selected&&(tool==='select'||tool==='loop'))).join('');
   const f=state.features.find(f=>f.id===selected);
-  $('handles').innerHTML=f?.visible&&tool==='select'&&editingPoints?f.points.map((p,i)=>`<circle class="vertex" data-vertex="${i}" cx="${p[0]}" cy="${p[1]}" r="${5/camera.k}" stroke-width="${1.5/camera.k}"/>`).join(''):'';
+  $('handles').innerHTML=f?.visible&&(tool==='select'||tool==='loop')&&editingPoints?f.points.map((p,i)=>`<circle class="vertex" data-vertex="${i}" cx="${p[0]}" cy="${p[1]}" r="${6/camera.k}" stroke-width="${1.8/camera.k}"/>`).join(''):'';
 }
 
 function select(id){
   selected=id;
-  editingPoints=false;
+  const f=state.features.find(o=>o.id===id);
+  editingPoints=Boolean(f&&(f.type==='loop'||editingPoints));
   renderMap();
   renderPanel();
   renderLayers();
@@ -273,12 +274,15 @@ function finish(e,cancel=false){
     if(g.points.length>0&&Math.hypot(last[0]-g.points.at(-1)[0],last[1]-g.points.at(-1)[1])>.1)g.points.push(last);
     
     let pts;
-    const totalDist = g.points.reduce((acc, pt, i) => i === 0 ? 0 : acc + Math.hypot(pt[0]-g.points[i-1][0], pt[1]-g.points[i-1][1]), 0);
+    const totalDist=g.points.reduce((acc,pt,i)=>i===0?0:acc+Math.hypot(pt[0]-g.points[i-1][0],pt[1]-g.points[i-1][1]),0);
+    const endDist=Math.hypot(last[0]-g.start[0],last[1]-g.start[1]);
     
-    if(g.points.length <= 2 || totalDist < 20){
-      pts = createCirclePoints(g.start[0], g.start[1], 65, 12);
+    if(g.points.length<=2||totalDist<20){
+      pts=createCirclePoints(g.start[0],g.start[1],60,8);
+    } else if(g.points.length<=6&&endDist>25){
+      pts=createCirclePoints(g.start[0],g.start[1],endDist,8);
     } else {
-      pts = resampleLoop(g.points, 16);
+      pts=resampleLoop(g.points,10);
     }
 
     const f={
@@ -293,17 +297,16 @@ function finish(e,cancel=false){
     };
     state.features.push(f);
     commit();
-    renderMap();
-    chooseTool('select');
     select(f.id);
     editingPoints=true;
     $('reshape')?.setAttribute('aria-pressed','true');
     renderMap();
-    toast('Custom loop created! Drag any point around your shape to morph it.');
+    toast('Smooth contour loop created! Drag handles to morph it.');
   }
   if(g.kind==='erase')commit();
   if(g.kind==='move'||g.kind==='vertex'){
     commit();
+    renderMap();
     renderPanel();
   }
   if(svg.hasPointerCapture(e.pointerId))svg.releasePointerCapture(e.pointerId);
@@ -330,6 +333,13 @@ svg.addEventListener('pointerdown',e=>{
   else if(tool==='select'){
     if(vertex!==undefined&&selected){
       const f=state.features.find(o=>o.id===selected);
+      if((e.altKey||e.shiftKey)&&f&&f.points.length>3){
+        f.points.splice(Number(vertex),1);
+        commit();
+        renderMap();
+        toast('Point removed from contour.');
+        return;
+      }
       gesture={kind:'vertex',index:Number(vertex),original:structuredClone(f)};
     } else if(id){
       select(id);
@@ -341,18 +351,30 @@ svg.addEventListener('pointerdown',e=>{
     eraseAt(e);
   }
   else if(tool==='loop'){
-    gesture={
-      kind:'loop',
-      start:p,
-      points:[p],
-      brush:{
-        color:$('brush-color').value,
-        size:Math.min(30,Math.max(1,Number($('brush-width').value)||2.5)),
-        fill:$('brush-fill-toggle').checked,
-        fillColor:$('brush-fill-color').value||$('brush-color').value,
-        opacity:Number($('brush-opacity').value)||0.65
+    if(vertex!==undefined&&selected){
+      const f=state.features.find(o=>o.id===selected);
+      if((e.altKey||e.shiftKey)&&f&&f.points.length>3){
+        f.points.splice(Number(vertex),1);
+        commit();
+        renderMap();
+        toast('Point removed from contour.');
+        return;
       }
-    };
+      gesture={kind:'vertex',index:Number(vertex),original:structuredClone(f)};
+    } else {
+      gesture={
+        kind:'loop',
+        start:p,
+        points:[p],
+        brush:{
+          color:$('brush-color').value,
+          size:Math.min(30,Math.max(1,Number($('brush-width').value)||2.5)),
+          fill:$('brush-fill-toggle').checked,
+          fillColor:$('brush-fill-color').value||$('brush-color').value,
+          opacity:Number($('brush-opacity').value)||0.65
+        }
+      };
+    }
   }
   else {
     gesture={
@@ -402,7 +424,15 @@ svg.addEventListener('pointermove',e=>{
       if(Math.hypot(q[0]-last[0],q[1]-last[1])*camera.k>=.75)g.points.push(q);
     }
     const fillVal=g.brush.fill?g.brush.fillColor:'none';
-    $('draft').innerHTML=`<path d="${path(g.points,true)}" stroke="${g.brush.color}" stroke-width="${g.brush.size}" fill="${fillVal}" fill-opacity="0.4" stroke-dasharray="4 4" opacity="${g.brush.opacity}"/>`;
+    const dist=Math.hypot(p[0]-g.start[0],p[1]-g.start[1]);
+    let previewPts;
+    if(g.points.length<=5){
+      const r=Math.max(15,dist);
+      previewPts=createCirclePoints(g.start[0],g.start[1],r,8);
+    } else {
+      previewPts=resampleLoop(g.points,10);
+    }
+    $('draft').innerHTML=`<path d="${smoothClosedPath(previewPts)}" stroke="${g.brush.color}" stroke-width="${g.brush.size}" fill="${fillVal}" fill-opacity="0.45" stroke-linecap="round" stroke-linejoin="round" opacity="${g.brush.opacity}"/>`;
   } else if(g.kind==='move'){
     const m=moveFeature(g.original,p[0]-g.start[0],p[1]-g.start[1]);
     state.features=state.features.map(f=>f.id===m.id?m:f);

@@ -1,9 +1,40 @@
 export const esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+export function smoothClosedPath(points, tension = 1) {
+  if (!points || points.length === 0) return '';
+  if (points.length === 1) return `M${points[0][0]} ${points[0][1]}`;
+  if (points.length === 2) return `M${points[0][0]} ${points[0][1]} L${points[1][0]} ${points[1][1]} Z`;
+
+  const n = points.length;
+  let d = `M${points[0][0]} ${points[0][1]}`;
+
+  for (let i = 0; i < n; i++) {
+    const p0 = points[(i - 1 + n) % n];
+    const p1 = points[i];
+    const p2 = points[(i + 1) % n];
+    const p3 = points[(i + 2) % n];
+
+    const cp1x = p1[0] + (p2[0] - p0[0]) * (tension / 6);
+    const cp1y = p1[1] + (p2[1] - p0[1]) * (tension / 6);
+    const cp2x = p2[0] - (p3[0] - p1[0]) * (tension / 6);
+    const cp2y = p2[1] - (p3[1] - p1[1]) * (tension / 6);
+
+    d += ` C${Math.round(cp1x * 10) / 10} ${Math.round(cp1y * 10) / 10}, ${Math.round(cp2x * 10) / 10} ${Math.round(cp2y * 10) / 10}, ${p2[0]} ${p2[1]}`;
+  }
+
+  return d + ' Z';
+}
+
 export function path(points, closed=false){
+  if (closed && points.length >= 3) {
+    return smoothClosedPath(points, 1);
+  }
   const d=points.map((p,i)=>`${i?'L':'M'}${p[0]} ${p[1]}`).join(' ');
   return closed ? `${d} Z` : d;
 }
+
 export function bounds(f){const xs=f.points.map(p=>p[0]),ys=f.points.map(p=>p[1]);return {x:Math.min(...xs)-8,y:Math.min(...ys)-8,w:Math.max(...xs)-Math.min(...xs)+16,h:Math.max(...ys)-Math.min(...ys)+16};}
+
 export function renderFeature(f,selected){
  if(!f.visible)return '';
  const first=f.points[0];
@@ -21,4 +52,5 @@ export function renderFeature(f,selected){
  if(f.label&&f.name){const mid=f.points[Math.floor(f.points.length/2)];art+=`<text class="feature-label" text-anchor="middle" x="${mid[0]}" y="${mid[1]-15}">${esc(f.name)}</text>`;}
  return `<g data-id="${esc(f.id)}" role="button" aria-label="${esc(f.name||f.type+' drawing')}" tabindex="0">${art}</g>`;
 }
+
 export function backdrop(){return `<g id="grid-layer" hidden><rect x="-6000" y="-6000" width="12000" height="12000" fill="url(#grid)"/></g>`;}
