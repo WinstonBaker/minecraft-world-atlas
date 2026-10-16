@@ -6,7 +6,8 @@
   <meta name="theme-color" content="#2d3748">
   <meta name="description" content="Collaborative Minecraft World Atlas: Draw, map, and plan your world with friends in real time.">
   <title>Minecraft World Atlas</title>
-  <link rel="stylesheet" href="style.css?v=multiplayer-1">
+  <link rel="stylesheet" href="style.css?v=global-1">
+  <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 </head>
 <body>
 <header>
@@ -20,12 +21,11 @@
   </div>
 
   <div class="header-right">
-    <button id="open-room-btn" class="pill-btn" title="Multiplayer & Room settings">
-      <span id="room-status-badge" class="status-dot connecting"></span>
-      <span id="room-name-label">Room: smp</span>
-      <span class="badge-count" id="peer-count">1 online</span>
-    </button>
-    <button id="share-link-btn" class="pill-btn primary-subtle" title="Copy multiplayer invite link">🔗 Share Link</button>
+    <div class="sync-indicator" title="Live sync with friends">
+      <span id="sync-status-badge" class="status-dot connecting"></span>
+      <span id="sync-status-text">Connecting...</span>
+    </div>
+    <button id="btn-player-profile" class="pill-btn" title="Change your player name & cursor color">👤 <span id="player-name-label">Player</span></button>
     <button id="export-world-btn" class="pill-btn" title="Export world backup (JSON)">💾 Export</button>
     <button id="import-world-btn" class="pill-btn" title="Import world file">📂 Import</button>
     <input type="file" id="import-file-input" accept=".json" style="display:none">
@@ -72,7 +72,6 @@
     </div>
 
     <button id="open-layers">Layers</button>
-    <button id="new-world">New map</button>
   </aside>
 
   <section class="workspace" aria-label="Map editor">
@@ -127,55 +126,22 @@
 
 <div id="toast" role="status" hidden></div>
 
-<dialog id="new-dialog">
-  <h2>Start a new map?</h2>
-  <p>This replaces your current map. You can undo it during this session.</p>
-  <div>
-    <button id="cancel-new">Cancel</button>
-    <button id="confirm-new" class="primary">Start new map</button>
-  </div>
-</dialog>
-
-<dialog id="room-dialog">
-  <h2>Multiplayer Room & Profile</h2>
-  <p>Share this link with your friends to draw and map your Minecraft world together in real-time!</p>
-  
+<dialog id="profile-dialog">
+  <h2>Player Profile</h2>
+  <p>Customize how your cursor appears to your friends on the map.</p>
   <div class="dialog-field">
     <label for="input-player-name">Your Player Name</label>
-    <input id="input-player-name" type="text" maxlength="30" placeholder="e.g. Steve">
+    <input id="input-player-name" type="text" maxlength="30" placeholder="e.g. Winston">
   </div>
-  
   <div class="dialog-field">
-    <label for="input-player-color">Your Cursor Color</label>
+    <label for="input-player-color">Cursor Color</label>
     <input id="input-player-color" type="color" value="#2ecc71">
   </div>
-
-  <div class="dialog-field">
-    <label for="input-room-id">World / Room Code</label>
-    <div class="input-with-button">
-      <input id="input-room-id" type="text" maxlength="50" placeholder="e.g. smp">
-      <button id="btn-switch-room">Switch Room</button>
-    </div>
-  </div>
-
-  <div class="dialog-field">
-    <label>Multiplayer Link</label>
-    <div class="input-with-button">
-      <input id="input-share-url" type="text" readonly>
-      <button id="btn-copy-share-dialog" class="primary">Copy Link</button>
-    </div>
-  </div>
-
-  <div class="peers-section">
-    <label>Players in this room</label>
-    <div id="peers-list"></div>
-  </div>
-
   <div class="dialog-actions">
-    <button id="close-room-dialog">Close</button>
+    <button id="close-profile-dialog" class="primary">Save</button>
   </div>
 </dialog>
 
-<script type="module" src="app.js?v=multiplayer-1"></script>
+<script type="module" src="app.js?v=global-1"></script>
 </body>
 </html>

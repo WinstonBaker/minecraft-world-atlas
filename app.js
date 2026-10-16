@@ -1,6 +1,6 @@
 import {createFeature,moveFeature,reorder,encode,decode,History,blankWorld,restoreWorld,createCirclePoints,subdividePoints,simplifyPoints,resampleLoop} from './model.js?v=draw-freely-7';
 import {path,renderFeature,backdrop,esc} from './render.js?v=draw-freely-7';
-import {MultiplayerManager} from './multiplayer.js';
+import {SyncManager} from './sync.js';
 
 const $=id=>document.getElementById(id),KEY='world-atlas-v1';
 let state=blankWorld(),saveBlocked=false;
@@ -9,50 +9,84 @@ const history=new History(state);let selected=null,editingPoints=false,tool='dra
 const svg=$('map'),view=$('viewport');let camera={x:0,y:0,k:1},baseScale=1;
 const toolInfo=[['drawing','Draw','B'],['loop','Loop / Topology','L'],['erase','Erase','E'],['select','Select','V'],['pan','Pan','H']];
 
-function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4500);}
-function save(){if(saveBlocked){$('save-status').textContent='Save paused';$('save-status').classList.add('error');return;}try{localStorage.setItem(KEY,encode(state));$('save-status').textContent='Saved';$('save-status').classList.remove('error');}catch{$('save-status').textContent='Couldn’t save';$('save-status').classList.add('error');}}
-function commit(){history.push(state);save();updateHistory();renderLayers();}
+function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4000);}
+
+function saveLocal(){
+  if(saveBlocked)return;
+  try{
+    localStorage.setItem(KEY,encode(state));
+    $('save-status').textContent='Saved';
+    $('save-status').classList.remove('error');
+  }catch{
+    $('save-status').textContent='Local storage full';
+    $('save-status').classList.add('error');
+  }
+}
+
+function commit(){
+  history.push(state);
+  saveLocal();
+  updateHistory();
+  renderLayers();
+  sync.publishState(state);
+}
+
 function updateHistory(){$('undo').disabled=!history.canUndo;$('redo').disabled=!history.canRedo;}
 
-// Setup Multiplayer P2P Sync
-const mp = new MultiplayerManager({
+// Remote Cursors
+const remoteCursors = new Map();
+function updateRemoteCursor(data) {
+  remoteCursors.set(data.senderId, { ...data, lastSeen: Date.now() });
+  renderRemoteCursors();
+}
+
+setInterval(() => {
+  const now = Date.now();
+  let changed = false;
+  for (const [id, c] of remoteCursors.entries()) {
+    if (now - c.lastSeen > 6000) {
+      remoteCursors.delete(id);
+      changed = true;
+    }
+  }
+  if (changed) renderRemoteCursors();
+}, 2500);
+
+function renderRemoteCursors() {
+  const container = $('remote-cursors');
+  if (!container) return;
+  let svgMarkup = '';
+  for (const [, c] of remoteCursors.entries()) {
+    const name = c.name || 'Friend';
+    const color = c.color || '#3498db';
+    const pencil = c.isDrawing ? ' ✎' : '';
+    svgMarkup += `
+      <g class="remote-cursor" transform="translate(${c.x} ${c.y})" style="pointer-events:none">
+        <path d="M0 0 L10 10 L6 11 L9 18 L6.5 19 L3.5 12 L0 15 Z" fill="${color}" stroke="#ffffff" stroke-width="1.2" />
+        <g transform="translate(12, 6)">
+          <rect x="0" y="0" width="${name.length * 7 + 16}" height="18" rx="4" fill="${color}" opacity="0.9" />
+          <text x="6" y="13" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#ffffff">${esc(name)}${pencil}</text>
+        </g>
+      </g>
+    `;
+  }
+  container.innerHTML = svgMarkup;
+}
+
+// Global Board Sync (Single shared world across all friends)
+const sync = new SyncManager({
   getState: () => state,
   showToast: toast,
-  onSync: (remoteState) => {
-    if (remoteState?.features) {
+  onRemoteState: (remoteState) => {
+    if (remoteState && Array.isArray(remoteState.features)) {
       state = remoteState;
-      save();
+      saveLocal();
       renderAll();
+      toast('Map synced with friends!');
     }
   },
-  onAdd: (feature) => {
-    if (!state.features.some(f => f.id === feature.id)) {
-      state.features.push(feature);
-      save();
-      renderMap();
-      renderLayers();
-    }
-  },
-  onUpdate: (feature) => {
-    state.features = state.features.map(f => f.id === feature.id ? feature : f);
-    save();
-    renderMap();
-    if (selected === feature.id) renderPanel();
-  },
-  onDelete: (featureId) => {
-    state.features = state.features.filter(f => f.id !== featureId);
-    if (selected === featureId) {
-      selected = null;
-      renderPanel();
-    }
-    save();
-    renderMap();
-    renderLayers();
-  },
-  onTitle: (title) => {
-    state.title = title;
-    $('world-title').value = title;
-    save();
+  onRemoteCursor: (cursorData) => {
+    updateRemoteCursor(cursorData);
   }
 });
 
@@ -139,12 +173,10 @@ function renderPanel(){
       if (!feature) return;
       feature[prop]=input.type==='checkbox'?input.checked:['size','opacity'].includes(prop)?Number(input.value):input.value;
       renderMap();
-      save();
+      saveLocal();
     });
     input.addEventListener('change',()=>{
       commit();
-      const feature=state.features.find(o=>o.id===selected);
-      if (feature) mp.broadcastUpdate(feature);
     });
   }
 
@@ -160,7 +192,6 @@ function renderPanel(){
     commit();
     renderMap();
     renderPanel();
-    mp.broadcastUpdate(f);
     toast('Added detail points to contour! Drag to sculpt.');
   };
 
@@ -169,12 +200,11 @@ function renderPanel(){
     commit();
     renderMap();
     renderPanel();
-    mp.broadcastUpdate(f);
     toast('Simplified contour points.');
   };
 
-  $('send-back').onclick=()=>{stack(f.id,-1);mp.broadcastUpdate(f);};
-  $('bring-front').onclick=()=>{stack(f.id,1);mp.broadcastUpdate(f);};
+  $('send-back').onclick=()=>{stack(f.id,-1);};
+  $('bring-front').onclick=()=>{stack(f.id,1);};
   $('delete-feature').onclick=remove;
   $('send-back').disabled=state.features[0]?.id===f.id;
   $('bring-front').disabled=state.features.at(-1)?.id===f.id;
@@ -202,10 +232,9 @@ function remove(){
   commit();
   renderMap();
   renderPanel();
-  mp.broadcastDelete(toDelete);
 }
 function renderAll(){renderMap();renderPanel();renderLayers();$('world-title').value=state.title;updateHistory();}
-function travel(dir){state=dir==='undo'?history.undo():history.redo();if(!state.features.some(f=>f.id===selected))selected=null;save();renderAll();mp.actions.sendSync?.(state);}
+function travel(dir){state=dir==='undo'?history.undo():history.redo();if(!state.features.some(f=>f.id===selected))selected=null;saveLocal();renderAll();sync.publishState(state);}
 function applyCamera(){view.setAttribute('transform',`translate(${camera.x} ${camera.y}) scale(${camera.k})`);$('zoom-level').textContent=Math.round(camera.k/baseScale*100)+'%';}
 function fit(){const w=svg.clientWidth,h=svg.clientHeight;camera.k=Math.max(.15,Math.min(w/1100,h/900));baseScale=camera.k;camera.x=w/2-630*camera.k;camera.y=h/2-435*camera.k;applyCamera();renderMap();}
 function zoom(factor,cx=svg.clientWidth/2,cy=svg.clientHeight/2){const next=Math.max(baseScale*.4,Math.min(baseScale*5,camera.k*factor));const ratio=next/camera.k;camera.x=cx-(cx-camera.x)*ratio;camera.y=cy-(cy-camera.y)*ratio;camera.k=next;applyCamera();renderMap();}
@@ -237,7 +266,6 @@ function finish(e,cancel=false){
       selected=null;
       commit();
       renderMap();
-      mp.broadcastAdd(f);
     }
   }
   if(g.kind==='loop'){
@@ -266,7 +294,6 @@ function finish(e,cancel=false){
     state.features.push(f);
     commit();
     renderMap();
-    mp.broadcastAdd(f);
     chooseTool('select');
     select(f.id);
     editingPoints=true;
@@ -278,8 +305,6 @@ function finish(e,cancel=false){
   if(g.kind==='move'||g.kind==='vertex'){
     commit();
     renderPanel();
-    const f=state.features.find(o=>o.id===g.original?.id);
-    if(f)mp.broadcastUpdate(f);
   }
   if(svg.hasPointerCapture(e.pointerId))svg.releasePointerCapture(e.pointerId);
 }
@@ -289,7 +314,7 @@ function eraseAt(e){
   if(id){
     state.features=state.features.filter(f=>f.id!==id);
     renderMap();
-    mp.broadcastDelete(id);
+    commit();
   }
 }
 
@@ -352,7 +377,7 @@ svg.addEventListener('pointerdown',e=>{
 svg.addEventListener('pointermove',e=>{
   const p=world(e);
   $('coords-display').textContent=`X: ${Math.round(p[0])}, Z: ${Math.round(p[1])}`;
-  mp.broadcastCursor(p[0], p[1], gesture?.kind==='draw'||gesture?.kind==='loop');
+  sync.publishCursor(p[0], p[1], gesture?.kind==='draw'||gesture?.kind==='loop');
 
   if(!gesture||e.pointerId!==gesture.pointerId)return;
   const g=gesture;
@@ -397,7 +422,11 @@ svg.addEventListener('keydown',e=>{const id=e.target.closest('[data-id]')?.datas
 
 function showTab(layers){showLayers=layers;$('layers-panel').hidden=!layers;$('feature-panel').hidden=layers;$('tab-layers').classList.toggle('active',layers);$('tab-feature').classList.toggle('active',!layers);}
 $('tools').innerHTML=toolInfo.map(([id,label,key])=>`<button class="tool" data-tool="${id}" title="${label} (${key})" aria-label="${label}" aria-pressed="false"><span class="tool-label">${label}</span></button>`).join('');
-$('tools').onclick=e=>{const b=e.target.closest('[data-tool]');if(b)chooseTool(b.dataset.tool);};$('open-layers').onclick=()=>{chooseTool('select');showTab(true);};$('tab-feature').onclick=()=>showTab(false);$('tab-layers').onclick=()=>showTab(true);
+$('tools').onclick=e=>{const b=e.target.closest('[data-tool]');if(b)chooseTool(b.dataset.tool);};
+$('open-layers').onclick=()=>{chooseTool('select');showTab(true);};
+$('tab-feature').onclick=()=>showTab(false);
+$('tab-layers').onclick=()=>showTab(true);
+
 $('layers').onclick=e=>{
   const b=e.target.closest('button');if(!b)return;
   if(b.dataset.select){chooseTool('select');select(b.dataset.select);}
@@ -407,49 +436,38 @@ $('layers').onclick=e=>{
     commit();
     renderMap();
     renderPanel();
-    mp.broadcastUpdate(f);
   }
   if(b.dataset.order){
     stack(b.dataset.layer,Number(b.dataset.order));
-    const f=state.features.find(o=>o.id===b.dataset.layer);
-    if(f)mp.broadcastUpdate(f);
   }
 };
 
-$('undo').onclick=()=>travel('undo');$('redo').onclick=()=>travel('redo');$('fit').onclick=fit;$('zoom-in').onclick=()=>zoom(1.25);$('zoom-out').onclick=()=>zoom(.8);$('toggle-grid').onclick=()=>{const el=$('grid-layer');const visible=el.hasAttribute('hidden');el.toggleAttribute('hidden',!visible);$('toggle-grid').setAttribute('aria-pressed',visible);};
-$('world-title').oninput=e=>{state.title=e.target.value;save();};
-$('world-title').onchange=()=>{commit();mp.broadcastTitle(state.title);};
-
-$('new-world').onclick=()=>$('new-dialog').showModal();$('cancel-new').onclick=()=>$('new-dialog').close();
-$('confirm-new').onclick=()=>{state=blankWorld();selected=null;saveBlocked=false;commit();renderAll();mp.actions.sendSync?.(state);$('new-dialog').close();};
+$('undo').onclick=()=>travel('undo');
+$('redo').onclick=()=>travel('redo');
+$('fit').onclick=fit;
+$('zoom-in').onclick=()=>zoom(1.25);
+$('zoom-out').onclick=()=>zoom(.8);
+$('toggle-grid').onclick=()=>{const el=$('grid-layer');const visible=el.hasAttribute('hidden');el.toggleAttribute('hidden',!visible);$('toggle-grid').setAttribute('aria-pressed',visible);};
+$('world-title').oninput=e=>{state.title=e.target.value;saveLocal();};
+$('world-title').onchange=()=>commit();
 
 // Brush Settings
 $('brush-opacity').oninput=e=>{
   $('brush-opacity-val').textContent=Math.round(e.target.value*100)+'%';
 };
 
-// Multiplayer Dialog & Controls
-$('open-room-btn').onclick=()=>{
-  $('input-player-name').value=mp.playerName;
-  $('input-player-color').value=mp.playerColor;
-  $('input-room-id').value=mp.roomId;
-  $('input-share-url').value=mp.getShareUrl();
-  $('room-dialog').showModal();
+// Player Profile Dialog
+$('player-name-label').textContent = sync.playerName;
+$('btn-player-profile').onclick=()=>{
+  $('input-player-name').value = sync.playerName;
+  $('input-player-color').value = sync.playerColor;
+  $('profile-dialog').showModal();
 };
-$('close-room-dialog').onclick=()=>$('room-dialog').close();
-$('input-player-name').oninput=e=>mp.updateProfile(e.target.value,null);
-$('input-player-color').oninput=e=>mp.updateProfile(null,e.target.value);
-$('btn-switch-room').onclick=()=>{
-  const next=$('input-room-id').value;
-  if(next){mp.switchRoom(next);$('input-share-url').value=mp.getShareUrl();toast(`Switched to room "${next}"`);}
-};
-$('btn-copy-share-dialog').onclick=async()=>{
-  await navigator.clipboard.writeText(mp.getShareUrl());
-  toast('Copied invite link to clipboard!');
-};
-$('share-link-btn').onclick=async()=>{
-  await navigator.clipboard.writeText(mp.getShareUrl());
-  toast('Copied invite link! Send it to your friends to edit together.');
+$('close-profile-dialog').onclick=()=>{
+  sync.setPlayerName($('input-player-name').value);
+  sync.setPlayerColor($('input-player-color').value);
+  $('player-name-label').textContent = sync.playerName;
+  $('profile-dialog').close();
 };
 
 // Export & Import World Backups
@@ -471,7 +489,6 @@ $('import-file-input').onchange=async e=>{
     selected=null;
     commit();
     renderAll();
-    mp.actions.sendSync?.(state);
     toast('World imported successfully!');
   }catch{
     toast('Invalid world file format.');
@@ -491,7 +508,7 @@ document.querySelectorAll('.swatch').forEach(btn=>{
 
 window.addEventListener('keydown',e=>{
   const input=e.target.closest('input,textarea,[contenteditable]');
-  if(input||$('new-dialog').open||$('room-dialog').open)return;
+  if(input||$('profile-dialog').open)return;
   if(e.code==='Space'){space=true;e.preventDefault();}
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();travel(e.shiftKey?'redo':'undo');return;}
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();travel('redo');return;}
@@ -504,12 +521,11 @@ window.addEventListener('keydown',e=>{
 
 window.addEventListener('keyup',e=>{if(e.code==='Space')space=false;});
 window.addEventListener('blur',()=>{space=false;});
-window.addEventListener('pagehide',save);
+window.addEventListener('pagehide',saveLocal);
 
 $('backdrop').innerHTML=backdrop();
 chooseTool('drawing');
 renderAll();
 requestAnimationFrame(fit);
 new ResizeObserver(()=>{applyCamera();}).observe(svg);
-save();
-if(saveBlocked){toast('The saved map could not be opened. Your existing data has been preserved.');}
+saveLocal();
